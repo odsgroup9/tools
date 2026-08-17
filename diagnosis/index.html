@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>실시간 진단</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif; background:#f5f2ec; color:#2b3a5c; padding:16px; min-height:100vh; }
+  .wrap { max-width:520px; margin:0 auto; }
+  .tabs { display:flex; background:#ece7dd; border-radius:14px; padding:5px; margin-bottom:20px; }
+  .tab { flex:1; text-align:center; padding:14px 0; font-size:1.1rem; font-weight:700; border-radius:10px; cursor:pointer; }
+  .tab.active { background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+  .page { display:none; } .page.active { display:block; }
+
+  .intro { text-align:center; font-size:1.05rem; color:#7d7566; margin-bottom:18px; }
+  .qcard { background:#fff; border:1px solid #e3ddd0; border-radius:18px; padding:20px 18px; margin-bottom:16px; }
+  .qnum { display:inline-block; background:#c9962e; color:#fff; font-size:.8rem; font-weight:700; padding:3px 12px; border-radius:999px; margin-bottom:10px; }
+  .qtext { font-size:1.15rem; font-weight:700; line-height:1.5; margin-bottom:16px; }
+  .circles { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+  .circle { aspect-ratio:1; border-radius:50%; background:#faf8f4; border:2px solid #e3ddd0;
+            display:flex; align-items:center; justify-content:center; font-size:1.2rem; font-weight:700; cursor:pointer; transition:all .15s; }
+  .circle.selected { background:#c9962e; border-color:#c9962e; color:#fff; }
+  .hint { display:flex; justify-content:space-between; color:#9a917f; font-size:.85rem; margin-top:10px; }
+
+  .btn-submit { width:100%; padding:20px 0; background:#2b3a5c; color:#fff; font-size:1.25rem; font-weight:700;
+                border:none; border-radius:12px; cursor:pointer; font-family:inherit; margin-top:6px; }
+  .btn-submit:disabled { opacity:.55; }
+  .msg { text-align:center; margin-top:16px; font-size:1.02rem; font-weight:600; min-height:1.5em; }
+  .msg.error { color:#c0392b; } .msg.ok { color:#2e7d46; }
+
+  /* 결과 */
+  .top-card { background:#fff; border:1px solid #e3ddd0; border-radius:18px; padding:24px; text-align:center; margin-bottom:16px; }
+  .people { font-size:2.2rem; font-weight:800; }
+  .people small { font-size:1rem; color:#9a917f; font-weight:600; }
+  .overall { color:#9a917f; font-size:.95rem; margin-top:6px; }
+  .rescard { background:#fff; border:1px solid #e3ddd0; border-radius:18px; padding:20px 18px; margin-bottom:16px; }
+  .rtitle { font-size:.9rem; color:#9a917f; font-weight:600; margin-bottom:16px; }
+  .bar-row { margin-bottom:16px; }
+  .bar-label { display:flex; justify-content:space-between; font-size:.95rem; font-weight:700; margin-bottom:6px; }
+  .bar-label .score { color:#c9962e; }
+  .track { background:#f0ece3; border-radius:8px; height:22px; overflow:hidden; }
+  .fill { height:100%; background:linear-gradient(90deg,#e0b45c,#c9962e); border-radius:8px; width:0; transition:width .6s ease; }
+  .btn-refresh { width:100%; padding:17px 0; background:#fff; border:1px solid #d8d2c4; border-radius:12px;
+                 font-size:1.1rem; font-weight:700; color:#2b3a5c; cursor:pointer; font-family:inherit; margin-bottom:16px; }
+  .reset-link { display:block; margin:0 auto; text-align:center; color:#9a917f; text-decoration:underline;
+                font-size:.95rem; cursor:pointer; background:none; border:none; font-family:inherit; }
+  .spin { display:inline-block; width:18px; height:18px; border:3px solid rgba(255,255,255,.4); border-top-color:#fff;
+          border-radius:50%; animation:sp .7s linear infinite; vertical-align:-3px; margin-right:8px; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" id="tabInput">점수 입력</div>
+    <div class="tab" id="tabResult">결과 보기</div>
+  </div>
+
+  <div class="page active" id="pageInput">
+    <div class="intro">아래 문항에 각각 1~10점으로 답해 주세요</div>
+    <div id="questionArea"></div>
+    <button class="btn-submit" id="submitBtn">전체 제출하기</button>
+    <div class="msg" id="inputMsg"></div>
+  </div>
+
+  <div class="page" id="pageResult">
+    <div class="top-card">
+      <div class="people"><span id="peopleNum">0</span><small>명 참여</small></div>
+      <div class="overall">전체 평균 <b id="overallNum">0.0</b> / 10</div>
+    </div>
+    <div class="rescard">
+      <div class="rtitle">문항별 평균</div>
+      <div id="barArea"></div>
+    </div>
+    <button class="btn-refresh" id="refreshBtn">새로고침</button>
+    <button class="reset-link" id="resetBtn">전체 데이터 초기화</button>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+     ★★★ 여기 두 곳만 수정하면 됩니다 ★★★
+     ① SCRIPT_URL : Apps Script 배포 후 받은 웹 앱 URL(…/exec)
+     ② QUESTIONS  : 질문 목록. 항목을 추가/삭제해도 자동으로 반영됩니다.
+     ============================================================ */
+
+  var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby7BHHndP3dzKa5B5ttND5iF_DifHlE_HRvBXsHlnZ4dccgHpj7GCeeAzPg7qpdbrmgFQ/exec'
+  var QUESTIONS = [
+    { text: '우리 조직의 소통은 몇 점인가요?',        low: '매우 낮음', high: '매우 높음' },
+    { text: '우리 조직의 실행력은 몇 점인가요?',      low: '매우 낮음', high: '매우 높음' },
+    { text: '우리 조직의 신뢰 수준은 몇 점인가요?',   low: '매우 낮음', high: '매우 높음' },
+    { text: '오늘 강의의 현업 적용도는 몇 점인가요?', low: '전혀 아님', high: '매우 높음' }
+  ];
+
+  /* ============ 이 아래는 수정할 필요 없습니다 ============ */
+
+  var selected = new Array(QUESTIONS.length).fill(null);
+  var submitting = false, autoTimer = null, lastRound = null;
+
+  (function buildQuestions() {
+    var area = document.getElementById('questionArea');
+    QUESTIONS.forEach(function (q, qi) {
+      var card = document.createElement('div');
+      card.className = 'qcard';
+      var num = document.createElement('span');
+      num.className = 'qnum'; num.textContent = 'Q' + (qi + 1);
+      var txt = document.createElement('div');
+      txt.className = 'qtext'; txt.textContent = q.text;
+      var grid = document.createElement('div');
+      grid.className = 'circles';
+      for (var n = 1; n <= 10; n++) {
+        (function (score) {
+          var c = document.createElement('div');
+          c.className = 'circle'; c.textContent = score;
+          c.onclick = function () {
+            selected[qi] = score;
+            var all = grid.children;
+            for (var j = 0; j < all.length; j++) all[j].classList.remove('selected');
+            c.classList.add('selected');
+            setMsg('', '');
+          };
+          grid.appendChild(c);
+        })(n);
+      }
+      var hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.innerHTML = '<span>1 = ' + q.low + '</span><span>10 = ' + q.high + '</span>';
+      card.appendChild(num); card.appendChild(txt); card.appendChild(grid); card.appendChild(hint);
+      area.appendChild(card);
+    });
+  })();
+
+  function setMsg(text, type) {
+    var m = document.getElementById('inputMsg');
+    m.textContent = text; m.className = 'msg ' + (type || '');
+  }
+
+  function showPage(which) {
+    document.getElementById('pageInput').classList.toggle('active', which === 'input');
+    document.getElementById('pageResult').classList.toggle('active', which === 'result');
+    document.getElementById('tabInput').classList.toggle('active', which === 'input');
+    document.getElementById('tabResult').classList.toggle('active', which === 'result');
+    if (which === 'result') {
+      refresh(true);
+      if (autoTimer) clearInterval(autoTimer);
+      autoTimer = setInterval(function () { refresh(false); }, 7000);
+    } else if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  }
+  document.getElementById('tabInput').onclick = function () { showPage('input'); };
+  document.getElementById('tabResult').onclick = function () { showPage('result'); };
+
+  function api(options) {
+    return fetch(SCRIPT_URL + (options.query || ''), {
+      method: options.method || 'GET',
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      headers: options.body ? { 'Content-Type': 'text/plain;charset=utf-8' } : undefined
+    }).then(function (r) { return r.json(); });
+  }
+
+  document.getElementById('submitBtn').onclick = function () {
+    if (submitting) return;
+    var missing = [];
+    selected.forEach(function (v, i) { if (v === null) missing.push('Q' + (i + 1)); });
+    if (missing.length) { setMsg(missing.join(', ') + ' 문항에 답해 주세요.', 'error'); return; }
+
+    var doneRound = null;
+    try { doneRound = localStorage.getItem('submittedRound'); } catch (e) {}
+    if (doneRound !== null && lastRound !== null && Number(doneRound) === lastRound) {
+      if (!confirm('이미 제출하셨습니다. 다시 제출할까요?')) return;
+    }
+
+    submitting = true;
+    var btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>제출 중...';
+    setMsg('', '');
+
+    api({ method: 'POST', body: { scores: selected } })
+      .then(function (res) {
+        if (res.error) throw new Error(res.error);
+        setMsg('제출이 완료되었습니다. 감사합니다!', 'ok');
+        try { localStorage.setItem('submittedRound', String(res.round)); } catch (e) {}
+        applyResults(res);
+      })
+      .catch(function () { setMsg('제출 중 오류가 발생했습니다. 다시 시도해 주세요.', 'error'); })
+      .finally(function () {
+        submitting = false; btn.disabled = false; btn.textContent = '전체 제출하기';
+      });
+  };
+
+  function refresh(showLoading) {
+    if (showLoading) document.getElementById('barArea').innerHTML = '<div style="color:#9a917f">불러오는 중...</div>';
+    api({ query: '?action=results' })
+      .then(applyResults)
+      .catch(function () {
+        document.getElementById('barArea').innerHTML = '<div style="color:#c0392b">데이터를 불러올 수 없습니다.</div>';
+      });
+  }
+  document.getElementById('refreshBtn').onclick = function () { refresh(true); };
+
+  function applyResults(res) {
+    lastRound = res.round;
+    document.getElementById('peopleNum').textContent = res.people || 0;
+    document.getElementById('overallNum').textContent = (res.overall || 0).toFixed(1);
+
+    var area = document.getElementById('barArea');
+    area.innerHTML = '';
+    if (!res.people) {
+      area.innerHTML = '<div style="color:#9a917f">아직 제출된 응답이 없습니다.</div>';
+      return;
+    }
+    QUESTIONS.forEach(function (q, i) {
+      var avg = (res.avgs && res.avgs[i]) || 0;
+      var row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML =
+        '<div class="bar-label"><span>Q' + (i + 1) + '. ' + q.text + '</span>' +
+        '<span class="score">' + avg.toFixed(1) + '</span></div>' +
+        '<div class="track"><div class="fill" style="width:' + (avg / 10 * 100) + '%"></div></div>';
+      area.appendChild(row);
+    });
+  }
+
+  document.getElementById('resetBtn').onclick = function () {
+    if (!confirm('모든 응답 데이터를 삭제할까요?\n(새 세션을 시작할 때 사용하세요)')) return;
+    api({ query: '?action=reset' }).then(applyResults).catch(function () {
+      alert('초기화에 실패했습니다.');
+    });
+  };
+</script>
+</body>
+</html>
