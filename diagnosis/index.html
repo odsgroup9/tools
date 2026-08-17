@@ -37,8 +37,8 @@
   .rescard { background:#fff; border:1px solid #e3ddd0; border-radius:18px; padding:20px 18px; margin-bottom:16px; }
   .rtitle { font-size:.9rem; color:#9a917f; font-weight:600; margin-bottom:16px; }
   .bar-row { margin-bottom:16px; }
-  .bar-label { display:flex; justify-content:space-between; font-size:.95rem; font-weight:700; margin-bottom:6px; }
-  .bar-label .score { color:#c9962e; }
+  .bar-label { display:flex; justify-content:space-between; font-size:.95rem; font-weight:700; margin-bottom:6px; gap:10px; }
+  .bar-label .score { color:#c9962e; flex-shrink:0; }
   .track { background:#f0ece3; border-radius:8px; height:22px; overflow:hidden; }
   .fill { height:100%; background:linear-gradient(90deg,#e0b45c,#c9962e); border-radius:8px; width:0; transition:width .6s ease; }
   .btn-refresh { width:100%; padding:17px 0; background:#fff; border:1px solid #d8d2c4; border-radius:12px;
@@ -80,12 +80,12 @@
 
 <script>
   /* ============================================================
-     ★★★ 여기 두 곳만 수정하면 됩니다 ★★★
-     ① SCRIPT_URL : Apps Script 배포 후 받은 웹 앱 URL(…/exec)
-     ② QUESTIONS  : 질문 목록. 항목을 추가/삭제해도 자동으로 반영됩니다.
+     ★★★ 질문을 바꾸려면 아래 QUESTIONS 목록만 수정하세요 ★★★
+     항목을 지우거나 복사해서 늘리면 문항 수가 자동으로 바뀝니다.
      ============================================================ */
 
-  var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby7BHHndP3dzKa5B5ttND5iF_DifHlE_HRvBXsHlnZ4dccgHpj7GCeeAzPg7qpdbrmgFQ/exec'
+  var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx2OchaMIjWDWvhIGVti3bawC6iSS6NE0-zwoxqScdU7fYkZSub3rTaJqT3sJ3WQZ5USA/exec';
+
   var QUESTIONS = [
     { text: '우리 조직의 소통은 몇 점인가요?',        low: '매우 낮음', high: '매우 높음' },
     { text: '우리 조직의 실행력은 몇 점인가요?',      low: '매우 낮음', high: '매우 높음' },
@@ -95,7 +95,8 @@
 
   /* ============ 이 아래는 수정할 필요 없습니다 ============ */
 
-  var selected = new Array(QUESTIONS.length).fill(null);
+  var selected = [];
+  for (var i = 0; i < QUESTIONS.length; i++) selected.push(null);
   var submitting = false, autoTimer = null, lastRound = null;
 
   (function buildQuestions() {
@@ -165,7 +166,7 @@
     if (missing.length) { setMsg(missing.join(', ') + ' 문항에 답해 주세요.', 'error'); return; }
 
     var doneRound = null;
-    try { doneRound = localStorage.getItem('submittedRound'); } catch (e) {}
+    try { doneRound = localStorage.getItem('submittedRoundMulti'); } catch (e) {}
     if (doneRound !== null && lastRound !== null && Number(doneRound) === lastRound) {
       if (!confirm('이미 제출하셨습니다. 다시 제출할까요?')) return;
     }
@@ -179,7 +180,7 @@
       .then(function (res) {
         if (res.error) throw new Error(res.error);
         setMsg('제출이 완료되었습니다. 감사합니다!', 'ok');
-        try { localStorage.setItem('submittedRound', String(res.round)); } catch (e) {}
+        try { localStorage.setItem('submittedRoundMulti', String(res.round)); } catch (e) {}
         applyResults(res);
       })
       .catch(function () { setMsg('제출 중 오류가 발생했습니다. 다시 시도해 주세요.', 'error'); })
