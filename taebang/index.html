@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 설문 - (주)태방파텍</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif; background:#f4f6f9; color:#1e3a5f; padding:16px; min-height:100vh; }
+  .wrap { max-width:520px; margin:0 auto; }
+
+  /* 헤더 */
+  .header { text-align:center; padding:22px 16px 20px; background:#fff; border:1px solid #dde4ee;
+            border-radius:18px; margin-bottom:16px; }
+  .header img { height:44px; width:auto; margin-bottom:14px; }
+  .header h1 { font-size:1.7rem; font-weight:800; letter-spacing:-.02em; color:#0b4da2; }
+  .header .sub { font-size:.92rem; color:#7b8798; margin-top:6px; }
+
+  .tabs { display:flex; background:#e6ecf5; border-radius:14px; padding:5px; margin-bottom:20px; }
+  .tab { flex:1; text-align:center; padding:14px 0; font-size:1.1rem; font-weight:700; border-radius:10px; cursor:pointer; color:#1e3a5f; }
+  .tab.active { background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+  .page { display:none; } .page.active { display:block; }
+
+  .intro { text-align:center; font-size:1rem; color:#6b7887; margin-bottom:16px; line-height:1.6; }
+  .legend { background:#eef3fa; border:1px solid #d8e2f0; border-radius:12px; padding:12px 14px;
+            font-size:.86rem; color:#41566f; text-align:center; margin-bottom:18px; line-height:1.7; }
+
+  .qcard { background:#fff; border:1px solid #dde4ee; border-radius:18px; padding:20px 18px; margin-bottom:16px; }
+  .qhead { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .qnum { background:#0b4da2; color:#fff; font-size:.78rem; font-weight:700; padding:3px 12px; border-radius:999px; }
+  .qtag { background:#eaf1fb; color:#0b4da2; font-size:.75rem; font-weight:700; padding:3px 10px; border-radius:999px; }
+  .qtext { font-size:1.12rem; font-weight:700; line-height:1.55; margin-bottom:16px; }
+  .circles { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+  .opt { background:#f7f9fc; border:2px solid #dde4ee; border-radius:14px; padding:12px 4px 10px;
+         text-align:center; cursor:pointer; transition:all .15s; }
+  .opt .n { font-size:1.35rem; font-weight:800; line-height:1.1; }
+  .opt .l { font-size:.68rem; color:#8b96a5; margin-top:4px; line-height:1.3; word-break:keep-all; }
+  .opt.selected { background:#0b4da2; border-color:#0b4da2; }
+  .opt.selected .n, .opt.selected .l { color:#fff; }
+
+  .btn-submit { width:100%; padding:20px 0; background:#0b4da2; color:#fff; font-size:1.25rem; font-weight:700;
+                border:none; border-radius:12px; cursor:pointer; font-family:inherit; margin-top:6px; }
+  .btn-submit:disabled { opacity:.55; }
+  .msg { text-align:center; margin-top:16px; font-size:1.02rem; font-weight:600; min-height:1.5em; }
+  .msg.error { color:#c0392b; } .msg.ok { color:#1f7a45; }
+
+  /* 결과 */
+  .top-card { background:#fff; border:1px solid #dde4ee; border-radius:18px; padding:24px; text-align:center; margin-bottom:16px; }
+  .people { font-size:2.3rem; font-weight:800; color:#0b4da2; }
+  .people small { font-size:1rem; color:#8b96a5; font-weight:600; }
+  .overall { color:#7b8798; font-size:.95rem; margin-top:6px; }
+  .rescard { background:#fff; border:1px solid #dde4ee; border-radius:18px; padding:20px 18px; margin-bottom:16px; }
+  .rtitle { font-size:.9rem; color:#8b96a5; font-weight:600; margin-bottom:16px; }
+  .bar-row { margin-bottom:18px; }
+  .bar-label { display:flex; justify-content:space-between; font-size:.92rem; font-weight:700; margin-bottom:7px; gap:10px; }
+  .bar-label .score { color:#0b4da2; flex-shrink:0; }
+  .track { background:#eef1f6; border-radius:8px; height:22px; overflow:hidden; }
+  .fill { height:100%; background:linear-gradient(90deg,#4d8ad6,#0b4da2); border-radius:8px; width:0; transition:width .6s ease; }
+  .btn-refresh { width:100%; padding:17px 0; background:#fff; border:1px solid #cfd8e6; border-radius:12px;
+                 font-size:1.1rem; font-weight:700; color:#1e3a5f; cursor:pointer; font-family:inherit; margin-bottom:16px; }
+  .reset-link { display:block; margin:0 auto; text-align:center; color:#8b96a5; text-decoration:underline;
+                font-size:.95rem; cursor:pointer; background:none; border:none; font-family:inherit; }
+  .spin { display:inline-block; width:18px; height:18px; border:3px solid rgba(255,255,255,.4); border-top-color:#fff;
+          border-radius:50%; animation:sp .7s linear infinite; vertical-align:-3px; margin-right:8px; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <img src="data:image/png;base64,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" alt="(주)태방파텍">
+    <h1>AI 설문</h1>
+    <div class="sub">교육 전 사전 진단</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tabInput">설문 참여</div>
+    <div class="tab" id="tabResult">결과 보기</div>
+  </div>
+
+  <div class="page active" id="pageInput">
+    <div class="intro">아래 4개 문항에 솔직하게 답해 주세요</div>
+    <div class="legend">1 전혀 아니다 · 2 아니다 · 3 보통<br>4 그렇다 · 5 매우 그렇다</div>
+    <div id="questionArea"></div>
+    <button class="btn-submit" id="submitBtn">제출하기</button>
+    <div class="msg" id="inputMsg"></div>
+  </div>
+
+  <div class="page" id="pageResult">
+    <div class="top-card">
+      <div class="people"><span id="peopleNum">0</span><small>명 참여</small></div>
+      <div class="overall">전체 평균 <b id="overallNum">0.0</b> / 5</div>
+    </div>
+    <div class="rescard">
+      <div class="rtitle">문항별 평균</div>
+      <div id="barArea"></div>
+    </div>
+    <button class="btn-refresh" id="refreshBtn">새로고침</button>
+    <button class="reset-link" id="resetBtn">전체 데이터 초기화</button>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+     ★★★ 질문을 바꾸려면 아래 QUESTIONS 목록만 수정하세요 ★★★
+     ============================================================ */
+
+  var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx2OchaMIjWDWvhIGVti3bawC6iSS6NE0-zwoxqScdU7fYkZSub3rTaJqT3sJ3WQZ5USA/exec';
+
+  var MAX = 5;
+  var LABELS = ['전혀\n아니다', '아니다', '보통', '그렇다', '매우\n그렇다'];
+
+  var QUESTIONS = [
+    { text: '나는 AI(챗지피티·제미나이 등)를 자주 사용한다', tag: '사용 빈도' },
+    { text: '나는 AI를 업무에 활용해본 적이 있다',            tag: '업무 적용' },
+    { text: '나는 AI에게 원하는 것을 잘 설명(지시)할 수 있다', tag: '지시 역량' },
+    { text: 'AI를 배우면 내 업무가 편해질 것 같다',           tag: '태도' }
+  ];
+
+  /* ============ 이 아래는 수정할 필요 없습니다 ============ */
+
+  var selected = [];
+  for (var i = 0; i < QUESTIONS.length; i++) selected.push(null);
+  var submitting = false, autoTimer = null, lastRound = null;
+
+  (function buildQuestions() {
+    var area = document.getElementById('questionArea');
+    QUESTIONS.forEach(function (q, qi) {
+      var card = document.createElement('div');
+      card.className = 'qcard';
+
+      var head = document.createElement('div');
+      head.className = 'qhead';
+      head.innerHTML = '<span class="qnum">Q' + (qi + 1) + '</span>' +
+                       (q.tag ? '<span class="qtag">' + q.tag + '</span>' : '');
+
+      var txt = document.createElement('div');
+      txt.className = 'qtext'; txt.textContent = q.text;
+
+      var grid = document.createElement('div');
+      grid.className = 'circles';
+      for (var n = 1; n <= MAX; n++) {
+        (function (score) {
+          var o = document.createElement('div');
+          o.className = 'opt';
+          o.innerHTML = '<div class="n">' + score + '</div><div class="l">' +
+                        LABELS[score - 1].replace('\n', '<br>') + '</div>';
+          o.onclick = function () {
+            selected[qi] = score;
+            var all = grid.children;
+            for (var j = 0; j < all.length; j++) all[j].classList.remove('selected');
+            o.classList.add('selected');
+            setMsg('', '');
+          };
+          grid.appendChild(o);
+        })(n);
+      }
+      card.appendChild(head); card.appendChild(txt); card.appendChild(grid);
+      area.appendChild(card);
+    });
+  })();
+
+  function setMsg(text, type) {
+    var m = document.getElementById('inputMsg');
+    m.textContent = text; m.className = 'msg ' + (type || '');
+  }
+
+  function showPage(which) {
+    document.getElementById('pageInput').classList.toggle('active', which === 'input');
+    document.getElementById('pageResult').classList.toggle('active', which === 'result');
+    document.getElementById('tabInput').classList.toggle('active', which === 'input');
+    document.getElementById('tabResult').classList.toggle('active', which === 'result');
+    if (which === 'result') {
+      refresh(true);
+      if (autoTimer) clearInterval(autoTimer);
+      autoTimer = setInterval(function () { refresh(false); }, 7000);
+    } else if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  }
+  document.getElementById('tabInput').onclick = function () { showPage('input'); };
+  document.getElementById('tabResult').onclick = function () { showPage('result'); };
+
+  function api(options) {
+    return fetch(SCRIPT_URL + (options.query || ''), {
+      method: options.method || 'GET',
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      headers: options.body ? { 'Content-Type': 'text/plain;charset=utf-8' } : undefined
+    }).then(function (r) { return r.json(); });
+  }
+
+  document.getElementById('submitBtn').onclick = function () {
+    if (submitting) return;
+    var missing = [];
+    selected.forEach(function (v, i) { if (v === null) missing.push('Q' + (i + 1)); });
+    if (missing.length) { setMsg(missing.join(', ') + ' 문항에 답해 주세요.', 'error'); return; }
+
+    var doneRound = null;
+    try { doneRound = localStorage.getItem('submittedRoundAI'); } catch (e) {}
+    if (doneRound !== null && lastRound !== null && Number(doneRound) === lastRound) {
+      if (!confirm('이미 제출하셨습니다. 다시 제출할까요?')) return;
+    }
+
+    submitting = true;
+    var btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>제출 중...';
+    setMsg('', '');
+
+    api({ method: 'POST', body: { scores: selected } })
+      .then(function (res) {
+        if (res.error) throw new Error(res.error);
+        setMsg('제출이 완료되었습니다. 감사합니다!', 'ok');
+        try { localStorage.setItem('submittedRoundAI', String(res.round)); } catch (e) {}
+        applyResults(res);
+      })
+      .catch(function () { setMsg('제출 중 오류가 발생했습니다. 다시 시도해 주세요.', 'error'); })
+      .finally(function () {
+        submitting = false; btn.disabled = false; btn.textContent = '제출하기';
+      });
+  };
+
+  function refresh(showLoading) {
+    if (showLoading) document.getElementById('barArea').innerHTML = '<div style="color:#8b96a5">불러오는 중...</div>';
+    api({ query: '?action=results' })
+      .then(applyResults)
+      .catch(function () {
+        document.getElementById('barArea').innerHTML = '<div style="color:#c0392b">데이터를 불러올 수 없습니다.</div>';
+      });
+  }
+  document.getElementById('refreshBtn').onclick = function () { refresh(true); };
+
+  function applyResults(res) {
+    lastRound = res.round;
+    document.getElementById('peopleNum').textContent = res.people || 0;
+    document.getElementById('overallNum').textContent = (res.overall || 0).toFixed(1);
+
+    var area = document.getElementById('barArea');
+    area.innerHTML = '';
+    if (!res.people) {
+      area.innerHTML = '<div style="color:#8b96a5">아직 제출된 응답이 없습니다.</div>';
+      return;
+    }
+    QUESTIONS.forEach(function (q, i) {
+      var avg = (res.avgs && res.avgs[i]) || 0;
+      var row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML =
+        '<div class="bar-label"><span>Q' + (i + 1) + '. ' + q.text + '</span>' +
+        '<span class="score">' + avg.toFixed(1) + '</span></div>' +
+        '<div class="track"><div class="fill" style="width:' + (avg / MAX * 100) + '%"></div></div>';
+      area.appendChild(row);
+    });
+  }
+
+  document.getElementById('resetBtn').onclick = function () {
+    if (!confirm('모든 응답 데이터를 삭제할까요?')) return;
+    api({ query: '?action=reset' }).then(applyResults).catch(function () {
+      alert('초기화에 실패했습니다.');
+    });
+  };
+</script>
+</body>
+</html>
